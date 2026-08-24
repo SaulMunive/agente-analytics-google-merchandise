@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agente de Análisis · Google Merchandise Store</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+<style>
+  :root {
+    --ink: #14110d;
+    --surface: #1d1811;
+    --surface-2: #262019;
+    --hairline: rgba(239,234,224,0.12);
+    --paper: #f7f3ea;
+    --paper-shadow: rgba(0,0,0,0.35);
+    --amber: #f2a93b;
+    --amber-ink: #1d1811;
+    --teal: #3fb68b;
+    --text: #efeae0;
+    --text-muted: #9a9284;
+    --text-on-paper: #1d1811;
+    --text-on-paper-muted: #7a7266;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(239,234,224,0.05) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+  .shell {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 32px 20px 20px;
+  }
+  .layout {
+    width: 100%;
+    max-width: 980px;
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 760px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- Header ---------- */
+  .header {
+    grid-column: 1 / -1;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .header-copy { flex: 1; }
+  .stamp-wrap {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .stamp {
+    width: 56px;
+    height: 56px;
+    border: 2px dashed var(--amber);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: rotate(-8deg);
+    color: var(--amber);
+  }
+  .stamp svg { width: 24px; height: 24px; }
+  .stamp-caption {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  @media (max-width: 480px) {
+    .stamp-wrap { display: none; }
+  }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--teal);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--teal);
+    box-shadow: 0 0 0 3px rgba(63,182,139,0.18);
+  }
+  .header h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.65rem;
+    font-weight: 700;
+    margin: 6px 0 2px;
+    letter-spacing: -0.01em;
+  }
+  .header p {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    margin: 0;
+  }
+
+  /* ---------- Sidebar: inventory ticket ---------- */
+  .ticket {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .ticket-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--hairline);
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 7px 0;
+    font-size: 0.82rem;
+  }
+  .stat-row .k { color: var(--text-muted); }
+  .stat-row .v {
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--text);
+    font-weight: 500;
+    text-align: right;
+  }
+  .ticket-sep {
+    border: none;
+    border-top: 1px dashed var(--hairline);
+    margin: 10px 0;
+  }
+  .examples-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .chip {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.78rem;
+    padding: 9px 11px;
+    border-radius: 7px;
+    margin-bottom: 7px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .chip:hover {
+    border-color: var(--amber);
+    background: #2c2317;
+  }
+
+  /* ---------- Main chat panel ---------- */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    height: 72vh;
+    min-height: 460px;
+    overflow: hidden;
+  }
+  .stream {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .stream::-webkit-scrollbar { width: 8px; }
+  .stream::-webkit-scrollbar-thumb { background: var(--hairline); border-radius: 4px; }
+
+  .row-user { display: flex; justify-content: flex-end; }
+  .bubble-user {
+    background: var(--amber);
+    color: var(--amber-ink);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    padding: 10px 14px;
+    border-radius: 10px 10px 2px 10px;
+    max-width: 78%;
+  }
+
+  .row-agent { display: flex; justify-content: flex-start; }
+  .receipt {
+    background: var(--paper);
+    color: var(--text-on-paper);
+    max-width: 88%;
+    border-radius: 3px;
+    padding: 14px 16px 12px;
+    box-shadow: 0 6px 18px var(--paper-shadow);
+    position: relative;
+  }
+  .receipt::before {
+    content: "";
+    position: absolute;
+    top: -1px; left: 0; right: 0;
+    height: 6px;
+    background-image: linear-gradient(135deg, var(--ink) 25%, transparent 25%),
+                       linear-gradient(225deg, var(--ink) 25%, transparent 25%);
+    background-size: 10px 10px;
+    background-position: 0 0;
+  }
+  .receipt-head {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-on-paper-muted);
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed rgba(29,24,17,0.2);
+  }
+  .receipt-body {
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+  .receipt-body.loading {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--text-on-paper-muted);
+  }
+  .receipt-body .error { color: #b3392b; font-weight: 600; }
+  .receipt-body h1, .receipt-body h2, .receipt-body h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.92rem;
+    margin: 12px 0 4px;
+  }
+  .receipt-body p { margin: 0 0 8px; }
+  .receipt-body p:last-child { margin-bottom: 0; }
+  .receipt-body strong { font-weight: 600; }
+  .receipt-body ul, .receipt-body ol { margin: 4px 0 8px; padding-left: 20px; }
+  .receipt-body li { margin-bottom: 3px; }
+  .receipt-body code {
+    font-family: 'IBM Plex Mono', monospace;
+    background: rgba(29,24,17,0.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.85em;
+  }
+
+  .receipt-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+  }
+  .receipt-table th {
+    text-align: left;
+    font-size: 0.65rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-on-paper-muted);
+    padding: 4px 6px;
+    border-bottom: 1px solid rgba(29,24,17,0.25);
+  }
+  .receipt-table td {
+    padding: 5px 6px;
+    border-bottom: 1px dotted rgba(29,24,17,0.2);
+  }
+  .receipt-table td:last-child, .receipt-table th:last-child {
+    text-align: right;
+  }
+
+  .barcode {
+    margin-top: 10px;
+    height: 20px;
+    background-image: repeating-linear-gradient(
+      90deg, var(--text-on-paper) 0 2px, transparent 2px 4px,
+      var(--text-on-paper) 4px 5px, transparent 5px 9px,
+      var(--text-on-paper) 9px 10px, transparent 10px 13px
+    );
+    opacity: 0.55;
+  }
+
+  .chart-box {
+    margin-top: 12px;
+    padding: 10px 4px 2px;
+    border-top: 1px dashed rgba(29,24,17,0.2);
+  }
+  .chart-box .vega-embed { width: 100%; }
+  .chart-box canvas, .chart-box svg { max-width: 100%; }
+  .chart-box summary.vega-actions-wrap { display: none; }
+
+  .row-user, .row-agent {
+    animation: rise 0.25s ease-out;
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .dots::after {
+    content: "";
+    animation: dots 1.2s steps(4, end) infinite;
+  }
+  @keyframes dots {
+    0% { content: ""; } 25% { content: "."; }
+    50% { content: ".."; } 75% { content: "..."; }
+    100% { content: ""; }
+  }
+
+  /* ---------- Input row ---------- */
+  .input-bar {
+    display: flex;
+    gap: 10px;
+    padding: 14px;
+    border-top: 1px solid var(--hairline);
+    background: var(--surface-2);
+  }
+  .input-bar input {
+    flex: 1;
+    background: var(--ink);
+    border: 1px solid var(--hairline);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    padding: 11px 14px;
+    border-radius: 7px;
+    outline: none;
+  }
+  .input-bar input:focus { border-color: var(--amber); }
+  .input-bar input::placeholder { color: var(--text-muted); }
+  .input-bar button {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 0.88rem;
+    background: var(--amber);
+    color: var(--amber-ink);
+    border: none;
+    padding: 0 20px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .input-bar button:hover:not(:disabled) { filter: brightness(1.08); }
+  .input-bar button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dots::after { animation: none; content: "..."; }
+    .row-user, .row-agent { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="layout">
+
+    <div class="header">
+      <div class="header-copy">
+        <div class="eyebrow">Conversational Analytics API · BigQuery</div>
+        <h1>Agente de Análisis — Google Merchandise Store</h1>
+        <p>Pregunta en lenguaje natural sobre las sesiones de e-commerce de diciembre de 2016.</p>
+      </div>
+      <div class="stamp-wrap">
+        <div class="stamp">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 20V10"/>
+            <path d="M10 20V4"/>
+            <path d="M16 20V14"/>
+            <path d="M22 20H2"/>
+          </svg>
+        </div>
+        <span class="stamp-caption">Datos verificados<br>BigQuery</span>
+      </div>
+    </div>
+
+    <aside class="ticket">
+      <div class="ticket-label">Ficha del dataset</div>
+      <div class="stat-row"><span class="k">Fuente</span><span class="v">ga_sessions</span></div>
+      <div class="stat-row"><span class="k">Periodo</span><span class="v">01–31 dic 2016</span></div>
+      <div class="stat-row"><span class="k">Sesiones totales</span><span class="v">79,124</span></div>
+      <div class="stat-row"><span class="k">Agente</span><span class="v">saul-dmc</span></div>
+      <hr class="ticket-sep">
+      <div class="examples-label">Tráfico y geografía</div>
+      <button class="chip" onclick="askExample(this)">¿Cuántas sesiones hubo en total?</button>
+      <button class="chip" onclick="askExample(this)">Grafica las sesiones por país (top 10)</button>
+      <button class="chip" onclick="askExample(this)">¿Qué canal de adquisición generó más tráfico?</button>
+      <div class="examples-label" style="margin-top:10px;">Dispositivos y comportamiento</div>
+      <button class="chip" onclick="askExample(this)">¿Qué dispositivo generó más tráfico?</button>
+      <button class="chip" onclick="askExample(this)">Compara sesiones de escritorio vs. móvil</button>
+      <div class="examples-label" style="margin-top:10px;">Negocio</div>
+      <button class="chip" onclick="askExample(this)">¿Cuántas transacciones se realizaron?</button>
+      <button class="chip" onclick="askExample(this)">Grafica los ingresos por día del mes</button>
+    </aside>
+
+    <main class="panel">
+      <div class="stream" id="stream">
+        <div class="row-agent">
+          <div class="receipt">
+            <div class="receipt-head"><span>Agente</span><span>Nº 000</span></div>
+            <div class="receipt-body">Hola, soy tu analista de datos de la Merchandise Store. Pregúntame sobre países, dispositivos, tráfico o transacciones de diciembre de 2016.</div>
+          </div>
+        </div>
+      </div>
+      <div class="input-bar">
+        <input type="text" id="questionInput" placeholder="Escribe tu pregunta..." autocomplete="off">
+        <button id="sendBtn">Enviar</button>
+      </div>
+    </main>
+
+  </div>
+</div>
+
+<script>
+  // 🔧 URL de tu Cloud Run Function
+  const API_URL = "https://agente-saul-analytics-api-133638131302.us-central1.run.app";
+
+  const stream = document.getElementById("stream");
+  const input = document.getElementById("questionInput");
+  const sendBtn = document.getElementById("sendBtn");
+  let ticketNum = 0;
+
+  function addUserMessage(text) {
+    const row = document.createElement("div");
+    row.className = "row-user";
+    const bubble = document.createElement("div");
+    bubble.className = "bubble-user";
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    stream.appendChild(row);
+    stream.scrollTop = stream.scrollHeight;
+  }
+
+  function addAgentReceipt() {
+    const num = ++ticketNum;
+    const row = document.createElement("div");
+    row.className = "row-agent";
+    row.innerHTML = `
+      <div class="receipt">
+        <div class="receipt-head"><span>Agente</span><span>Nº ${String(num).padStart(3, "0")}</span></div>
+        <div class="receipt-body loading">Consultando BigQuery<span class="dots"></span></div>
+      </div>`;
+    stream.appendChild(row);
+    stream.scrollTop = stream.scrollHeight;
+    return { body: row.querySelector(".receipt-body"), num };
+  }
+
+  function tableToHtml(rows) {
+    if (!rows || rows.length === 0) return "";
+    const cols = Object.keys(rows[0]);
+    let html = "<table class='receipt-table'><thead><tr>";
+    cols.forEach(c => html += `<th>${c}</th>`);
+    html += "</tr></thead><tbody>";
+    rows.forEach(r => {
+      html += "<tr>";
+      cols.forEach(c => html += `<td>${r[c]}</td>`);
+      html += "</tr>";
+    });
+    html += "</tbody></table><div class='barcode'></div>";
+    return html;
+  }
+
+  async function sendQuestion() {
+    const question = input.value.trim();
+    if (!question) return;
+
+    addUserMessage(question);
+    input.value = "";
+    sendBtn.disabled = true;
+
+    const { body, num } = addAgentReceipt();
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        body.className = "receipt-body";
+        body.innerHTML = `<span class="error">Error: ${data.error || "algo salió mal"}</span>`;
+        return;
+      }
+
+      let raw = data.answer || "Sin respuesta de texto.";
+      raw = raw.replace(/([^\n])(#{1,6}\s)/g, "$1\n\n$2");
+      let html = marked.parse(raw);
+      if (data.table && data.table.length > 0) html += tableToHtml(data.table);
+
+      const chartId = `chart-${num}`;
+      if (data.chart) html += `<div class="chart-box"><div id="${chartId}"></div></div>`;
+
+      body.className = "receipt-body";
+      body.innerHTML = html;
+      stream.scrollTop = stream.scrollHeight;
+
+      if (data.chart) {
+        try {
+          const themedChart = JSON.parse(JSON.stringify(data.chart));
+          themedChart.config = Object.assign({}, themedChart.config, {
+            background: "transparent",
+            font: "Inter",
+            mark: { color: "#f2a93b" },
+            bar: { color: "#f2a93b", cornerRadiusTopLeft: 2, cornerRadiusTopRight: 2 },
+            line: { color: "#f2a93b" },
+            point: { color: "#f2a93b" },
+            arc: { stroke: "#f7f3ea" },
+            range: {
+              category: ["#f2a93b", "#3fb68b", "#c9622f", "#5fcda0", "#a9762b",
+                         "#2f8f6b", "#d9b26b", "#7a7266", "#e08a2b", "#4a9b7f"],
+              ordinal: ["#f2a93b", "#e0994f", "#cd8963", "#a9762b", "#7a7266"]
+            },
+            axis: {
+              labelFont: "IBM Plex Mono",
+              titleFont: "Space Grotesk",
+              labelColor: "#7a7266",
+              titleColor: "#1d1811",
+              domainColor: "rgba(29,24,17,0.25)",
+              gridColor: "rgba(29,24,17,0.08)",
+              tickColor: "rgba(29,24,17,0.2)"
+            },
+            legend: {
+              labelFont: "Inter",
+              titleFont: "Space Grotesk",
+              labelColor: "#1d1811",
+              titleColor: "#1d1811"
+            },
+            title: { font: "Space Grotesk", color: "#1d1811", fontSize: 13 },
+            view: { stroke: "transparent" }
+          });
+
+          await vegaEmbed(`#${chartId}`, themedChart, {
+            actions: false,
+            renderer: "svg"
+          });
+          stream.scrollTop = stream.scrollHeight;
+        } catch (chartErr) {
+          document.getElementById(chartId).innerHTML =
+            `<span class="error">No se pudo renderizar el gráfico.</span>`;
+        }
+      }
+
+    } catch (err) {
+      body.className = "receipt-body";
+      body.innerHTML = `<span class="error">Error de conexión: ${err.message}</span>`;
+    } finally {
+      sendBtn.disabled = false;
+    }
+  }
+
+  function askExample(el) {
+    input.value = el.textContent;
+    sendQuestion();
+  }
+
+  sendBtn.addEventListener("click", sendQuestion);
+  input.addEventListener("keypress", (e) => { if (e.key === "Enter") sendQuestion(); });
+</script>
+</body>
+</html>
