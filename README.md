@@ -1,6 +1,6 @@
 # 🛒 Agente de Análisis Conversacional — Google Merchandise Store
 
-Práctica Guiada DMC: **Agente de Análisis Conversacional con BigQuery y Cloud Run Functions**
+**Agente de Análisis Conversacional con BigQuery y Cloud Run Functions**
 
 Este proyecto implementa una solución web capaz de responder preguntas en lenguaje natural sobre el dataset público de e-commerce de Google Analytics (Google Merchandise Store), usando un Data Agent de BigQuery integrado con la **Conversational Analytics API**, expuesto mediante una **Cloud Run Function** y consumido desde una interfaz web simple.
 
